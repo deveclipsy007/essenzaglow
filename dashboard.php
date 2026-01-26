@@ -31,14 +31,17 @@ $stats = [
 ];
 
 // Próximo agendamento
-$nextApp = $pdo->query("
+$now = date('Y-m-d H:i:s');
+$stmtNext = $pdo->prepare("
     SELECT a.*, c.name as client_name, s.name as service_name, s.duration_minutes 
     FROM appointments a
     JOIN clients c ON a.client_id = c.id
     JOIN services s ON a.service_id = s.id
-    WHERE a.start_at >= datetime('now', 'localtime') AND a.status != 'CANCELLED'
+    WHERE a.start_at >= ? AND a.status != 'CANCELLED'
     ORDER BY a.start_at ASC LIMIT 1
-")->fetch();
+");
+$stmtNext->execute([$now]);
+$nextApp = $stmtNext->fetch();
 
 // Solicitações pendentes de aprovação
 $pendingApprovals = $pdo->query("
