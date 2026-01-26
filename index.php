@@ -85,6 +85,13 @@ foreach ($combos as &$combo) {
         body { font-family: 'Inter', sans-serif; background-color: #F8F4EA; color: #433C30; }
         .hero-pattern { background-image: radial-gradient(#DAC38F 1px, transparent 1px); background-size: 20px 20px; opacity: 0.1; }
         .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        
+        /* Dynamic Primary Color */
+        :root { --primary-color: <?php echo $sections['logo']['content'] ?: '#433C30'; ?>; }
+        .btn-primary { background-color: var(--primary-color) !important; color: white !important; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .text-primary { color: var(--primary-color) !important; }
+        .border-primary { border-color: var(--primary-color) !important; }
     </style>
 </head>
 <body class="antialiased">
@@ -113,7 +120,7 @@ foreach ($combos as &$combo) {
 
             <div class="flex items-center gap-4">
                 <a href="login.php" class="text-sm font-medium hover:text-gold hidden md:block">Login</a>
-                <a href="book.php" class="bg-charcoal text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-charcoal-light hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                <a href="book.php" class="btn-primary px-6 py-2.5 rounded-full text-sm font-medium hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                     Agendar Horário
                 </a>
             </div>
@@ -139,7 +146,7 @@ foreach ($combos as &$combo) {
                         <?php echo nl2br(htmlspecialchars($sections['hero']['subtitle'])); ?>
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <a href="book.php" class="bg-charcoal text-white px-8 py-4 rounded-full text-center hover:bg-charcoal-light transition-all shadow-xl hover:shadow-2xl text-lg font-medium">
+                        <a href="book.php" class="btn-primary px-8 py-4 rounded-full text-center hover:bg-charcoal-light transition-all shadow-xl hover:shadow-2xl text-lg font-medium">
                             Agendar Consulta
                         </a>
                         <a href="#sobre" class="bg-white border border-sand text-charcoal px-8 py-4 rounded-full text-center hover:bg-ivory transition-all text-lg font-medium">
@@ -207,7 +214,7 @@ foreach ($combos as &$combo) {
                                 </span>
                                 <span class="text-xs font-bold text-sage">Economia de R$ <?php echo number_format($savings, 2, ',', '.'); ?></span>
                             </div>
-                            <a href="book.php" class="block w-full text-center py-4 bg-charcoal text-white rounded-2xl font-medium hover:bg-gold transition-all shadow-lg group-hover:shadow-gold/20">
+                            <a href="book.php" class="block w-full text-center py-4 btn-primary text-white rounded-2xl font-medium hover:bg-gold transition-all shadow-lg group-hover:shadow-gold/20">
                                 Reservar Este Combo
                             </a>
                         </div>
@@ -303,7 +310,7 @@ foreach ($combos as &$combo) {
                         </div>
                     </div>
                     
-                    <a href="book.php" class="inline-flex items-center gap-3 bg-charcoal text-white px-8 py-4 rounded-full hover:bg-gold transition-all shadow-xl">
+                    <a href="book.php" class="inline-flex items-center gap-3 btn-primary text-white px-8 py-4 rounded-full hover:bg-gold transition-all shadow-xl">
                         Agendar minha avaliação <i data-lucide="chevron-right" class="w-5 h-5"></i>
                     </a>
                 </div>

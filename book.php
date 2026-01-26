@@ -129,13 +129,20 @@ $logoHeight = $logoData['subtitle'] ?? '32';
         }
       }
     </script>
+    <style>
+        .btn-primary { 
+            background-color: <?php echo $sections['logo']['content'] ?: '#5B7355'; ?> !important; 
+            color: white !important; 
+        }
+        .btn-primary:hover { opacity: 0.9; }
+    </style>
 </head>
 <body class="bg-ivory flex items-center justify-center min-h-screen p-4 font-sans">
 
     <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-sand overflow-hidden">
         
         <!-- Header -->
-        <div class="bg-sage p-6 text-center text-white relative">
+        <div class="p-6 text-center text-white relative" style="background-color: <?php echo $sections['logo']['content'] ?: '#5B7355'; ?>;">
             <div class="flex justify-center items-center gap-2 mb-1">
                 <?php if(!empty($brandLogo)): ?>
                     <img src="<?php echo $brandLogo; ?>" style="height: <?php echo $logoHeight; ?>px" class="w-auto object-contain brightness-0 invert">
@@ -242,7 +249,7 @@ $logoHeight = $logoData['subtitle'] ?? '32';
                         <input type="text" name="phone" required class="w-full p-3 bg-ivory border border-sand rounded-xl text-charcoal placeholder-charcoal-light/50 focus:ring-2 focus:ring-sage focus:border-sage transition-all" placeholder="(00) 00000-0000">
                     </div>
 
-                    <button type="submit" class="w-full py-4 bg-sage text-white rounded-xl font-medium shadow-lg hover:bg-sage-dark transition-all mt-6 text-base">
+                    <button type="submit" class="w-full py-4 btn-primary rounded-xl font-medium shadow-lg transition-all mt-6 text-base">
                         Solicitar Agendamento
                     </button>
                 </form>

@@ -41,6 +41,9 @@ function renderHeader($title = "Essenza Glow") {
     </script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #F8F4EA; color: #433C30; }
+        .btn-primary { background-color: <?php echo $GLOBALS['logoData']['content'] ?: '#433C30'; ?> !important; color: white !important; }
+        .sidebar-active { background-color: <?php echo $GLOBALS['logoData']['content'] ?: '#5B7355'; ?> !important; color: white !important; }
+        .text-primary { color: <?php echo $GLOBALS['logoData']['content'] ?: '#433C30'; ?> !important; }
         .mobile-menu-open { overflow: hidden; }
         .sidebar-overlay { opacity: 0; visibility: hidden; transition: all 0.3s ease; }
         .sidebar-overlay.active { opacity: 1; visibility: visible; }
@@ -99,7 +102,7 @@ function renderSidebar($active = '') {
             <?php foreach($menu as $item): 
                 $isActive = $active == $item['label'];
             ?>
-            <a href="<?php echo $item['url']; ?>" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all <?php echo $isActive ? 'bg-sage text-white shadow-md' : 'text-charcoal-light hover:bg-sand/50'; ?>">
+            <a href="<?php echo $item['url']; ?>" class="flex items-center gap-3 px-4 py-3 rounded-lg transition-all <?php echo $isActive ? 'sidebar-active shadow-md' : 'text-charcoal-light hover:bg-sand/50'; ?>">
                 <i data-lucide="<?php echo $item['icon']; ?>"></i>
                 <span class="font-medium"><?php echo $item['label']; ?></span>
             </a>
@@ -111,8 +114,8 @@ function renderSidebar($active = '') {
             </a>
             <div class="flex items-center justify-between pt-2 border-t border-sand/50">
                 <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-sage/20 flex items-center justify-center">
-                        <i data-lucide="user" class="w-4 h-4 text-sage"></i>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background-color: <?php echo $GLOBALS['logoData']['content'] ?: '#5B7355'; ?>20">
+                        <i data-lucide="user" class="w-4 h-4" style="color: <?php echo $GLOBALS['logoData']['content'] ?: '#5B7355'; ?>"></i>
                     </div>
                     <span class="text-xs font-medium text-charcoal truncate"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?></span>
                 </div>

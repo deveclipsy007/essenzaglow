@@ -106,6 +106,7 @@ if (!isset($sections[$k])) $sections[$k] = ['title'=>'', 'subtitle'=>'', 'conten
 }
 if(empty($sections['logo']['title'])) $sections['logo']['title'] = 'Essenza Glow';
 if(empty($sections['logo']['subtitle'])) $sections['logo']['subtitle'] = '40'; // Default logo height in px
+if(empty($sections['logo']['content'])) $sections['logo']['content'] = '#433C30'; // Default primary color (charcoal)
 
 // Decode footer data
 $footer = json_decode($sections['footer']['content'] ?? '{}', true);
@@ -167,6 +168,18 @@ renderSidebar("Site");
                                class="w-full h-2 bg-sand rounded-lg appearance-none cursor-pointer accent-gold"
                                oninput="document.getElementById('logoSizeDisplay').innerText = this.value + 'px'; document.getElementById('previewLogo').style.height = this.value + 'px';">
                         <p class="text-[10px] text-charcoal-light">Ajuste entre 20px e 200px para encontrar o tamanho ideal.</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-charcoal">Cor dos Botões (Cor Primária)</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" name="content" value="<?php echo $sections['logo']['content']; ?>" 
+                                   class="w-12 h-12 rounded-lg border border-sand cursor-pointer p-1 bg-white">
+                            <input type="text" value="<?php echo $sections['logo']['content']; ?>" 
+                                   class="flex-1 px-4 py-2 rounded-lg border border-sand focus:border-gold outline-none text-sm font-mono uppercase"
+                                   oninput="this.previousElementSibling.value = this.value">
+                        </div>
+                        <p class="text-[10px] text-charcoal-light italic">Esta cor será aplicada aos botões de agendamento e destaques do site.</p>
                     </div>
                 </div>
 
