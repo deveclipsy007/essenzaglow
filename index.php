@@ -156,7 +156,7 @@ foreach ($combos as &$combo) {
                 </div>
 
                 <?php if(!empty($sections['hero']['image_data'])): ?>
-                <div class="relative animate-fade-in hidden md:block">
+                <div class="relative animate-fade-in mt-12 md:mt-0">
                     <div class="aspect-square rounded-[3rem] bg-sand overflow-hidden shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-700">
                         <img src="<?php echo $sections['hero']['image_data']; ?>" class="w-full h-full object-cover">
                     </div>
