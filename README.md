@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Essenza Glow Manager 💅
 
-# Run and deploy your AI Studio app
+Sistema de gerenciamento para centros de estética, focado em organização de agenda, clientes e controle financeiro.
 
-This contains everything you need to run your app locally.
+## 📂 Estrutura do Projeto
 
-View your app in AI Studio: https://ai.studio/apps/drive/1uht0T1qMe944DlqWZPNPBtYtOPQOgzoN
+Abaixo estão as principais partes que compõem o sistema:
 
-## Run Locally
+### 📄 Páginas Principais
+- `index.php`: Página inicial / Dashboard com resumo das atividades.
+- `agenda.php`: Gerenciamento de horários e agendamentos.
+- `clients.php`: Cadastro e consulta de clientes.
+- `financeiro.php`: Controle de entradas, saídas e lucros.
+- `estoque.php`: Gestão de produtos e materiais.
+- `servicos.php`: Configuração dos serviços oferecidos.
 
-**Prerequisites:**  Node.js
+### ⚙️ Núcleo e Configuração
+- `config.php`: Definições globais do sistema.
+- `db.php`: Conexão com o banco de dados.
+- `auth.php`: Controle de acesso e sessões.
+- `layout.php`: Estrutura visual base (Header/Footer).
 
+### 🗃️ Banco de Dados
+- `essenza.db`: Arquivo do banco de dados (SQLite).
+- `schema.sql`: Estrutura das tabelas para referência.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🎨 Recursos e Estilos
+- `src/`: Arquivos fonte de CSS e lógica frontend.
+- `dist/`: Arquivos processados e prontos para uso.
+- `tailwind.config.js`: Configurações de estilo.
+
+---
+*Este projeto foi desenvolvido com foco em simplicidade e eficiência operacional.*
