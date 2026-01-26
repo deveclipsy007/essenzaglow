@@ -1,5 +1,14 @@
 <?php
 require_once 'auth.php';
+require_once 'db.php';
+
+// Fetch Logo Config
+$stmtLogo = $pdo->prepare("SELECT * FROM landing_sections WHERE section_key = 'logo'");
+$stmtLogo->execute();
+$logoData = $stmtLogo->fetch();
+$brandLogo = $logoData['image_data'] ?? '';
+$brandName = $logoData['title'] ?? 'Essenza';
+$logoHeight = $logoData['subtitle'] ?? '24'; // Smaller for sidebar
 
 function renderHeader($title = "Essenza Glow") {
     // Verificar autenticação em todas as páginas protegidas
@@ -61,7 +70,11 @@ function renderSidebar($active = '') {
     <!-- Header Mobile -->
     <header class="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-sand z-20 px-4 py-3 flex justify-between items-center">
         <h1 class="font-serif text-xl text-charcoal flex items-center gap-2">
-            <i data-lucide="sparkles" class="text-gold fill-gold w-5 h-5"></i> Essenza
+            <?php if(!empty($GLOBALS['brandLogo'])): ?>
+                <img src="<?php echo $GLOBALS['brandLogo']; ?>" style="height: <?php echo $GLOBALS['logoHeight']; ?>px" class="w-auto object-contain">
+            <?php else: ?>
+                <i data-lucide="sparkles" class="text-gold fill-gold w-5 h-5"></i> <?php echo htmlspecialchars($GLOBALS['brandName']); ?>
+            <?php endif; ?>
         </h1>
         <button onclick="toggleMobileMenu()" class="p-2 hover:bg-sand rounded-lg transition-colors">
             <i data-lucide="menu" class="w-6 h-6 text-charcoal"></i>
@@ -72,7 +85,11 @@ function renderSidebar($active = '') {
     <aside id="sidebar" class="sidebar-mobile md:translate-x-0 w-64 bg-white/95 backdrop-blur-xl border-r border-sand-dark/50 fixed inset-y-0 z-40 flex flex-col">
         <div class="p-6 pb-4 flex justify-between items-center">
             <h1 class="font-serif text-2xl text-charcoal flex items-center gap-2">
-                <i data-lucide="sparkles" class="text-gold fill-gold"></i> Essenza
+                <?php if(!empty($GLOBALS['brandLogo'])): ?>
+                    <img src="<?php echo $GLOBALS['brandLogo']; ?>" style="height: <?php echo (intval($GLOBALS['logoHeight']) * 1.2); ?>px" class="w-auto object-contain">
+                <?php else: ?>
+                    <i data-lucide="sparkles" class="text-gold fill-gold"></i> <?php echo htmlspecialchars($GLOBALS['brandName']); ?>
+                <?php endif; ?>
             </h1>
             <button onclick="closeMobileMenu()" class="md:hidden p-2 hover:bg-sand rounded-lg">
                 <i data-lucide="x" class="w-5 h-5 text-charcoal"></i>

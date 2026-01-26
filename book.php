@@ -92,6 +92,14 @@ $availableDates = $pdo->query("
     WHERE is_booked = 0 AND date >= date('now') 
     ORDER BY date ASC LIMIT 30
 ")->fetchAll(PDO::FETCH_COLUMN);
+
+// Fetch Logo Config
+$stmtLogo = $pdo->prepare("SELECT * FROM landing_sections WHERE section_key = 'logo'");
+$stmtLogo->execute();
+$logoData = $stmtLogo->fetch();
+$brandLogo = $logoData['image_data'] ?? '';
+$brandName = $logoData['title'] ?? 'Essenza';
+$logoHeight = $logoData['subtitle'] ?? '32';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -129,8 +137,12 @@ $availableDates = $pdo->query("
         <!-- Header -->
         <div class="bg-sage p-6 text-center text-white relative">
             <div class="flex justify-center items-center gap-2 mb-1">
-                <i data-lucide="sparkles" class="text-gold fill-gold w-5 h-5"></i>
-                <h1 class="font-serif text-xl">Essenza</h1>
+                <?php if(!empty($brandLogo)): ?>
+                    <img src="<?php echo $brandLogo; ?>" style="height: <?php echo $logoHeight; ?>px" class="w-auto object-contain brightness-0 invert">
+                <?php else: ?>
+                    <i data-lucide="sparkles" class="text-gold fill-gold w-5 h-5"></i>
+                    <h1 class="font-serif text-xl"><?php echo htmlspecialchars($brandName); ?></h1>
+                <?php endif; ?>
             </div>
             <p class="text-xs text-white/70 tracking-widest uppercase">Agendamento Online</p>
         </div>

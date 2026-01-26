@@ -102,9 +102,10 @@ while ($row = $stmt->fetch()) {
 // Defaults to avoid warnings
 $defSections = ['hero', 'about', 'how_it_works', 'footer', 'logo'];
 foreach ($defSections as $k) {
-    if (!isset($sections[$k])) $sections[$k] = ['title'=>'', 'subtitle'=>'', 'content'=>'', 'image_data'=>''];
+if (!isset($sections[$k])) $sections[$k] = ['title'=>'', 'subtitle'=>'', 'content'=>'', 'image_data'=>''];
 }
 if(empty($sections['logo']['title'])) $sections['logo']['title'] = 'Essenza Glow';
+if(empty($sections['logo']['subtitle'])) $sections['logo']['subtitle'] = '40'; // Default logo height in px
 
 // Decode footer data
 $footer = json_decode($sections['footer']['content'] ?? '{}', true);
@@ -156,14 +157,25 @@ renderSidebar("Site");
                         <input type="text" name="title" value="<?php echo htmlspecialchars($sections['logo']['title']); ?>" class="w-full px-4 py-2 rounded-lg border border-sand focus:border-gold outline-none">
                         <p class="text-xs text-charcoal-light italic">Será exibido caso você não envie uma imagem de logo.</p>
                     </div>
+                    
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-charcoal flex justify-between">
+                            Tamanho da Logo (Altura)
+                            <span id="logoSizeDisplay" class="text-gold-dark font-bold"><?php echo $sections['logo']['subtitle']; ?>px</span>
+                        </label>
+                        <input type="range" name="subtitle" min="20" max="200" value="<?php echo $sections['logo']['subtitle']; ?>" 
+                               class="w-full h-2 bg-sand rounded-lg appearance-none cursor-pointer accent-gold"
+                               oninput="document.getElementById('logoSizeDisplay').innerText = this.value + 'px'; document.getElementById('previewLogo').style.height = this.value + 'px';">
+                        <p class="text-[10px] text-charcoal-light">Ajuste entre 20px e 200px para encontrar o tamanho ideal.</p>
+                    </div>
                 </div>
 
                 <!-- Logo Image -->
                 <div class="md:col-span-1 space-y-2">
                     <label class="text-sm font-medium text-charcoal block">Logo (Imagem)</label>
-                    <div class="aspect-video rounded-xl bg-sand overflow-hidden relative border border-sand group cursor-pointer">
+                    <div class="aspect-video rounded-xl bg-sand overflow-hidden relative border border-sand group cursor-pointer flex items-center justify-center">
                         <?php if(!empty($sections['logo']['image_data'])): ?>
-                            <img src="<?php echo $sections['logo']['image_data']; ?>" class="w-full h-full object-contain p-4">
+                            <img id="previewLogo" src="<?php echo $sections['logo']['image_data']; ?>" style="height: <?php echo $sections['logo']['subtitle']; ?>px" class="w-auto object-contain transition-all">
                         <?php else: ?>
                             <div class="absolute inset-0 flex items-center justify-center text-charcoal-light opacity-50">
                                 <i data-lucide="image" class="w-8 h-8"></i>

@@ -92,9 +92,11 @@ foreach ($combos as &$combo) {
     <!-- Navigation -->
     <nav class="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-sand transition-all duration-300" id="navbar">
         <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-            <a href="#" class="font-serif text-2xl text-charcoal flex items-center gap-2 group">
+            <a href="index.php" class="font-serif text-2xl text-charcoal flex items-center gap-2 group">
                 <?php if(!empty($sections['logo']['image_data'])): ?>
-                    <img src="<?php echo $sections['logo']['image_data']; ?>" class="h-10 w-auto object-contain" alt="Logo">
+                    <img src="<?php echo $sections['logo']['image_data']; ?>" 
+                         style="height: <?php echo $sections['logo']['subtitle']; ?>px" 
+                         class="w-auto object-contain" alt="Logo">
                 <?php else: ?>
                     <i data-lucide="sparkles" class="w-6 h-6 text-gold group-hover:rotate-12 transition-transform"></i>
                     <?php echo htmlspecialchars($sections['logo']['title']); ?>
@@ -375,9 +377,11 @@ foreach ($combos as &$combo) {
         <div class="max-w-7xl mx-auto px-6">
             <div class="grid md:grid-cols-4 gap-12 mb-20">
                 <div class="col-span-1 md:col-span-1">
-                    <a href="#" class="font-serif text-3xl text-charcoal flex items-center gap-2 mb-6">
+                    <a href="index.php" class="font-serif text-3xl text-charcoal flex items-center gap-2 mb-6">
                         <?php if(!empty($sections['logo']['image_data'])): ?>
-                            <img src="<?php echo $sections['logo']['image_data']; ?>" class="h-12 w-auto object-contain" alt="Logo">
+                            <img src="<?php echo $sections['logo']['image_data']; ?>" 
+                                 style="height: <?php echo (intval($sections['logo']['subtitle']) * 1.2); ?>px" 
+                                 class="w-auto object-contain" alt="Logo">
                         <?php else: ?>
                             <i data-lucide="sparkles" class="w-6 h-6 text-gold"></i> <?php echo htmlspecialchars($sections['logo']['title']); ?>
                         <?php endif; ?>
