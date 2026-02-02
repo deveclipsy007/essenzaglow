@@ -69,6 +69,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$id, $serviceId]);
             }
         }
+    } elseif ($action === 'add_package') {
+        $is_featured = isset($_POST['is_featured']) ? 1 : 0;
+        // Criar pacote
+        $stmt = $pdo->prepare("INSERT INTO packages (name, service_id, session_count, price, description, is_featured) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $_POST['package_name'], 
+            $_POST['package_service_id'], 
+            $_POST['package_sessions'], 
+            $_POST['package_price'], 
+            $_POST['package_description'],
+            $is_featured
+        ]);
+    } elseif ($action === 'edit_package') {
+        $is_featured = isset($_POST['is_featured']) ? 1 : 0;
+        $stmt = $pdo->prepare("UPDATE packages SET name=?, service_id=?, session_count=?, price=?, description=?, is_featured=? WHERE id=?");
+        $stmt->execute([
+            $_POST['package_name'], 
+            $_POST['package_service_id'], 
+            $_POST['package_sessions'], 
+            $_POST['package_price'], 
+            $_POST['package_description'],
+            $is_featured,
+            $_POST['id']
+        ]);
+    } elseif ($action === 'delete_package') {
+        $stmt = $pdo->prepare("DELETE FROM packages WHERE id=?");
+        $stmt->execute([$_POST['id']]);
     }
     
     header("Location: servicos.php");
@@ -93,6 +120,18 @@ foreach ($combos as &$combo) {
     $stmt->execute([$combo['id']]);
     $combo['included_services'] = $stmt->fetchAll();
 }
+unset($combo);
+
+// Buscar pacotes
+$packages = [];
+try {
+    $stmt = $pdo->query("SELECT p.*, s.name as service_name, s.price as single_price FROM packages p LEFT JOIN services s ON p.service_id = s.id ORDER BY p.name");
+    $packages = $stmt->fetchAll();
+} catch (PDOException $e) {
+    // Tabela packages ainda não existe ou erro na query.
+    // Ignorar para não quebrar a página, o usuário precisa rodar a migração.
+    // Opcionalmente poderíamos logar o erro: error_log($e->getMessage());
+}
 
 // --- VIEW ---
 renderHeader("Serviços - Essenza");
@@ -105,12 +144,95 @@ renderSidebar('Serviços');
             <h2 class="font-serif text-3xl text-charcoal">Menu de Serviços</h2>
             <p class="text-charcoal-light text-sm">Gerencie procedimentos e combos</p>
         </div>
-        <button onclick="openModal('modalAdd')" class="bg-[#4A4238] hover:bg-[#3d362e] text-white px-4 py-2 rounded-lg font-medium transition-all">
+        <button onclick="resetAddForms(); openModal('modalAdd')" class="bg-[#4A4238] hover:bg-[#3d362e] text-white px-4 py-2 rounded-lg font-medium transition-all">
             + Novo Item
         </button>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- PACOTES START -->
+        <?php foreach ($packages as $pkg): ?>
+        <?php 
+            // Calcular economia
+            $originalTotal = $pkg['single_price'] * $pkg['session_count'];
+            $savings = $originalTotal - $pkg['price'];
+            $savingsPercent = $originalTotal > 0 ? ($savings / $originalTotal) * 100 : 0;
+            $pricePerSession = $pkg['session_count'] > 0 ? $pkg['price'] / $pkg['session_count'] : 0;
+        ?>
+        <!-- Card de Pacote - Azul Sereno e Bege -->
+        <div class="relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 group bg-gradient-to-br from-[#F0F4F8] via-[#E6EEF5] to-[#DDE7F0] border border-[#CCDDEE]">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex flex-col gap-2">
+                        <div class="inline-flex items-center gap-2 bg-[#5B85AA] text-white px-3 py-1.5 rounded-full shadow-md">
+                            <span class="text-sm">📦</span>
+                            <span class="text-[10px] uppercase tracking-wider font-bold">Pacote de Sessões</span>
+                        </div>
+                        <span class="inline-flex items-center text-[9px] uppercase tracking-[0.15em] text-[#5B85AA] font-semibold bg-white/80 px-2.5 py-1 rounded-full border border-[#CCDDEE] w-fit">
+                            <?php echo $pkg['session_count']; ?>x SESSÕES
+                        </span>
+                    </div>
+                    <!-- Badge Economia -->
+                    <?php if ($savings > 0): ?>
+                    <div class="bg-[#5B85AA] text-white px-3 py-1.5 rounded-full shadow-md">
+                        <span class="text-xs font-bold">ECONOMIA <?php echo number_format($savingsPercent, 0); ?>%</span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Nome do Pacote -->
+                <h3 class="font-serif text-2xl text-[#2C3E50] mb-1 tracking-tight"><?php echo htmlspecialchars($pkg['name']); ?></h3>
+                <p class="text-sm text-[#5B85AA] mb-3">
+                    <?php echo htmlspecialchars($pkg['service_name']); ?>
+                </p>
+
+                <!-- Preços -->
+                <div class="bg-white/70 rounded-xl p-4 mb-4 border border-[#CCDDEE]">
+                    <?php if ($savings > 0): ?>
+                    <div class="flex items-baseline justify-between mb-1">
+                        <span class="text-xs text-[#5B85AA] uppercase font-bold">Total Original</span>
+                        <span class="text-sm text-[#5B85AA] line-through">R$ <?php echo number_format($originalTotal, 2, ',', '.'); ?></span>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="flex items-baseline justify-between">
+                         <div class="flex flex-col">
+                            <span class="text-[10px] text-[#5B85AA] uppercase font-bold">Por Sessão</span>
+                            <span class="font-bold text-[#2C3E50]">R$ <?php echo number_format($pricePerSession, 2, ',', '.'); ?></span>
+                         </div>
+                         <div class="text-right">
+                             <span class="block text-[10px] text-[#5B85AA] uppercase font-bold">Total do Pacote</span>
+                             <span class="font-serif text-3xl text-[#5B85AA] font-bold">R$ <?php echo number_format($pkg['price'], 2, ',', '.'); ?></span>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Descrição -->
+                <?php if(!empty($pkg['description'])): ?>
+                <div class="bg-[#E6EEF5] rounded-xl p-3 mb-4 border border-[#CCDDEE]">
+                    <p class="text-xs text-[#506B85] italic">"<?php echo htmlspecialchars($pkg['description']); ?>"</p>
+                </div>
+                <?php endif; ?>
+
+                <!-- Ações -->
+                <div class="flex gap-2">
+                    <button onclick='fillEditPackageModal(<?php echo json_encode($pkg); ?>)' class="flex-1 py-2 rounded-lg bg-white/70 hover:bg-white text-[#506B85] transition-all font-medium text-xs border border-[#CCDDEE] flex items-center justify-center gap-2">
+                        <i data-lucide="edit-3" class="w-3 h-3"></i> Editar
+                    </button>
+                    <form method="POST" onsubmit="return confirm('Excluir este pacote?');" class="flex-none">
+                        <input type="hidden" name="action" value="delete_package">
+                        <input type="hidden" name="id" value="<?php echo $pkg['id']; ?>">
+                        <button type="submit" class="px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transaction-colors">
+                            <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <!-- PACOTES END -->
+
         <?php foreach ($combos as $combo): ?>
         <?php 
             $savings = $combo['original_price'] - $combo['promotional_price'];
@@ -268,6 +390,9 @@ renderSidebar('Serviços');
             <button id="tabCombo" onclick="switchTab('combo')" class="pb-3 pt-4 text-sm font-medium text-[#8B7355] border-b-2 border-transparent hover:text-[#4A4238] transition-colors">
                 <i data-lucide="layers" class="w-4 h-4 inline mr-1"></i> Criar Combo
             </button>
+            <button id="tabPacote" onclick="switchTab('pacote')" class="pb-3 pt-4 text-sm font-medium text-[#8B7355] border-b-2 border-transparent hover:text-[#4A4238] transition-colors">
+                <i data-lucide="package" class="w-4 h-4 inline mr-1"></i> Criar Pacote
+            </button>
         </div>
         
         <!-- Formulário: Procedimento Único -->
@@ -336,8 +461,8 @@ renderSidebar('Serviços');
             <input type="hidden" name="original_price" id="original_price_input" value="0">
             <div class="grid grid-cols-1 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">NOME DO COMBO</label>
-                    <input type="text" name="combo_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="Ex: Day Spa Relax">
+                    <label for="add_combo_name" class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">NOME DO COMBO</label>
+                    <input type="text" name="combo_name" id="add_combo_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="Ex: Day Spa Relax">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -349,10 +474,10 @@ renderSidebar('Serviços');
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">DURAÇÃO (MIN)</label>
+                        <label for="add_combo_duration" class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">DURAÇÃO (MIN)</label>
                         <div class="relative">
                             <i data-lucide="clock" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#C9B896]"></i>
-                            <input type="number" name="combo_duration" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="0">
+                            <input type="number" name="combo_duration" id="add_combo_duration" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="0">
                         </div>
                     </div>
                 </div>
@@ -377,7 +502,7 @@ renderSidebar('Serviços');
                         <?php endif; ?>
                     </div>
                     <div class="mt-2 flex justify-end">
-                        <span class="text-sm text-[#8B7355]">Valor Original: <span id="original_price_display" class="font-semibold text-[#4A4238]">R$ 0,00</span></span>
+                        <span class="text-sm text-[#8B7355]">Valor Original: <span id="add_original_price_display" class="font-semibold text-[#4A4238]">R$ 0,00</span></span>
                     </div>
                 </div>
                 
@@ -385,7 +510,7 @@ renderSidebar('Serviços');
                     <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">VALOR DO COMBO (PROMOCIONAL)</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#C9B896]">R$</span>
-                        <input type="number" step="0.01" name="combo_price" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="0">
+                        <input type="number" step="0.01" name="combo_price" id="add_combo_price" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="0">
                     </div>
                 </div>
                 <div>
@@ -405,6 +530,64 @@ renderSidebar('Serviços');
             </div>
             <div class="pt-2">
                 <button type="submit" class="w-full py-3.5 rounded-lg bg-[#4A4238] text-white hover:bg-[#3d362e] transition-all font-medium">Salvar Combo</button>
+            </div>
+        </form>
+        <!-- Formulário: Criar Pacote -->
+        <form method="POST" id="formPackage" class="p-6 space-y-4 bg-white hidden">
+            <input type="hidden" name="action" value="add_package">
+            <input type="hidden" name="package_price" id="add_package_price_input" value="0">
+            
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">NOME DO PACOTE</label>
+                    <input type="text" name="package_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="Ex: Pacote 10 Sessões Massagem">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇO BASE</label>
+                        <select name="package_service_id" id="add_package_service" onchange="updatePackageCalculations()" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all">
+                            <option value="">Selecione...</option>
+                            <?php foreach ($services as $svc): ?>
+                            <option value="<?php echo $svc['id']; ?>" data-price="<?php echo $svc['price']; ?>"><?php echo htmlspecialchars($svc['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">QTD SESSÕES</label>
+                        <input type="number" name="package_sessions" id="add_package_sessions" oninput="updatePackageCalculations()" required min="2" value="5" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all">
+                    </div>
+                </div>
+                
+                <div>
+                     <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] font-semibold">PREÇO DO PACOTE</label>
+                        <span class="text-xs text-[#8B7355]">Preço Unit. com Desconto: <span id="add_package_unit_price" class="font-bold">R$ 0,00</span></span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#C9B896]">R$</span>
+                        <input type="number" step="0.01" name="package_price" id="add_package_price" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all">
+                    </div>
+                     <div class="mt-1 flex justify-between text-xs">
+                        <span class="text-[#8B7355]">Total Original: <span id="add_package_original_total" class="line-through">R$ 0,00</span></span>
+                        <span class="text-[#5B7355] font-bold" id="add_package_savings">Economia: 0%</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">DESCRIÇÃO (OPCIONAL)</label>
+                    <textarea name="package_description" rows="3" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all resize-none"></textarea>
+                </div>
+                
+                <div class="flex items-center gap-4 py-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_featured" value="1" class="w-4 h-4 text-[#C9B896] border-[#E8E3DA] rounded">
+                        <span class="text-sm text-[#4A4238]">Destacar na Landing Page</span>
+                    </label>
+                </div>
+            </div>
+            <div class="pt-2">
+                <button type="submit" class="w-full py-3.5 rounded-lg bg-[#4A4238] text-white hover:bg-[#3d362e] transition-all font-medium">Salvar Pacote</button>
             </div>
         </form>
     </div>
@@ -474,6 +657,46 @@ renderSidebar('Serviços');
 </dialog>
 
 <script>
+    function resetAddForms() {
+        // Reset Procedure Form
+        document.getElementById('formProcedimento').reset();
+        
+        // Reset Combo Form
+        document.getElementById('formCombo').reset();
+        
+        // Explicitly clear dynamic fields that reset() might miss if they were modified by JS
+        document.getElementById('add_combo_name').value = '';
+        document.getElementById('add_combo_duration').value = '';
+        document.getElementById('add_combo_price').value = '';
+        document.querySelector('#formCombo textarea[name="combo_description"]').value = '';
+        document.getElementById('original_price_input').value = '0';
+        
+        // Uncheck all services
+        const checkboxes = document.querySelectorAll('#formCombo input[name="combo_services[]"]');
+        checkboxes.forEach(cb => cb.checked = false);
+        
+        // Reset calculations
+        const display = document.getElementById('add_original_price_display');
+        if (display) display.textContent = 'R$ 0,00';
+
+        // Reset Package Form
+        const formPackage = document.getElementById('formPackage');
+        if (formPackage) {
+            formPackage.reset();
+            const serviceSelect = document.querySelector('#formPackage select[name="package_service_id"]');
+            if(serviceSelect) serviceSelect.value = '';
+            
+            const unitPrice = document.getElementById('add_package_unit_price');
+            if(unitPrice) unitPrice.innerText = 'R$ 0,00';
+            
+            const origTotal = document.getElementById('add_package_original_total');
+            if(origTotal) origTotal.innerText = 'R$ 0,00';
+            
+            const savings = document.getElementById('add_package_savings');
+            if(savings) savings.innerText = 'Economia: 0%';
+        }
+    }
+
     function fillEditModal(service) {
         document.getElementById('edit_id').value = service.id;
         document.getElementById('edit_name').value = service.name;
@@ -506,31 +729,106 @@ renderSidebar('Serviços');
             });
         }
         
+        
         updateComboCalculations('edit');
         openModal('modalEditCombo');
     }
-
+    
     function switchTab(tab) {
         const tabProcedimento = document.getElementById('tabProcedimento');
         const tabCombo = document.getElementById('tabCombo');
+        const tabPacote = document.getElementById('tabPacote');
+        
         const formProcedimento = document.getElementById('formProcedimento');
         const formCombo = document.getElementById('formCombo');
+        const formPackage = document.getElementById('formPackage');
+        
+        // Logic implemented above in the first few lines of this replacement block is actually incorrect because I was thinking inline but I am replacing the function body.
+        // Let's rewrite the whole function properly.
+        
+        // Reset styles first
+        const inactiveStyle = 'pb-3 pt-4 text-sm font-medium text-[#8B7355] border-b-2 border-transparent hover:text-[#4A4238] transition-colors';
+        const activeStyle = 'pb-3 pt-4 text-sm font-medium text-[#4A4238] border-b-2 border-[#4A4238]';
         
         if (tab === 'procedimento') {
-            tabProcedimento.className = 'pb-3 pt-4 text-sm font-medium text-[#4A4238] border-b-2 border-[#4A4238]';
-            tabCombo.className = 'pb-3 pt-4 text-sm font-medium text-[#8B7355] border-b-2 border-transparent hover:text-[#4A4238] transition-colors';
+            tabProcedimento.className = activeStyle;
+            tabCombo.className = inactiveStyle;
+            tabPacote.className = inactiveStyle;
             formProcedimento.classList.remove('hidden');
             formCombo.classList.add('hidden');
-        } else {
-            tabProcedimento.className = 'pb-3 pt-4 text-sm font-medium text-[#8B7355] border-b-2 border-transparent hover:text-[#4A4238] transition-colors';
-            tabCombo.className = 'pb-3 pt-4 text-sm font-medium text-[#4A4238] border-b-2 border-[#4A4238]';
+            formPackage.classList.add('hidden');
+        } else if (tab === 'combo') {
+            tabProcedimento.className = inactiveStyle;
+            tabCombo.className = activeStyle;
+            tabPacote.className = inactiveStyle;
             formProcedimento.classList.add('hidden');
             formCombo.classList.remove('hidden');
+            formPackage.classList.add('hidden');
+        } else if (tab === 'pacote') {
+            tabProcedimento.className = inactiveStyle;
+            tabCombo.className = inactiveStyle;
+            tabPacote.className = activeStyle;
+            formProcedimento.classList.add('hidden');
+            formCombo.classList.add('hidden');
+            formPackage.classList.remove('hidden');
         }
     }
     
+    function updatePackageCalculations(mode = 'add') {
+         const suffix = mode === 'edit' ? 'edit_package_' : 'add_package_';
+         const serviceSelect = document.getElementById(suffix + (mode === 'edit' ? 'service_id' : 'service'));
+         const sessionsInput = document.getElementById(suffix + 'sessions');
+         const priceInput = document.getElementById(suffix + 'price');
+         
+         const unitPriceDisplay = document.getElementById(suffix + 'unit_price');
+         const originalTotalDisplay = document.getElementById(suffix + 'original_total');
+         const savingsDisplay = document.getElementById(suffix + 'savings');
+         
+         if (!serviceSelect || !sessionsInput || !priceInput) return;
+         
+         const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+         const servicePrice = parseFloat(selectedOption.getAttribute('data-price') || 0);
+         const sessions = parseInt(sessionsInput.value || 0);
+         const packagePrice = parseFloat(priceInput.value || 0);
+         
+         const originalTotal = servicePrice * sessions;
+         const unitPrice = sessions > 0 ? packagePrice / sessions : 0;
+         const savings = originalTotal - packagePrice;
+         const savingsPercent = originalTotal > 0 ? (savings / originalTotal) * 100 : 0;
+         
+         if (originalTotalDisplay) originalTotalDisplay.innerText = 'R$ ' + originalTotal.toFixed(2).replace('.', ',');
+         if (unitPriceDisplay) unitPriceDisplay.innerText = 'R$ ' + unitPrice.toFixed(2).replace('.', ',');
+         
+
+    }
+
+    function fillEditPackageModal(pkg) {
+         document.getElementById('edit_package_id').value = pkg.id;
+         document.getElementById('edit_package_name').value = pkg.name;
+         document.getElementById('edit_package_service_id').value = pkg.service_id;
+         document.getElementById('edit_package_sessions').value = pkg.session_count;
+         document.getElementById('edit_package_price').value = pkg.price;
+         document.getElementById('edit_package_description').value = pkg.description;
+         const featured = document.getElementById('edit_package_is_featured');
+         if(featured) featured.checked = pkg.is_featured == 1;
+         
+         // Trigger calculations
+         updatePackageCalculations('edit');
+         
+         openModal('modalEditPackage');
+    }
+
+    
+    // Add event listener to price updates
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('add_package_price').addEventListener('input', () => updatePackageCalculations('add'));
+        // document.getElementById('edit_package_price').addEventListener('input', () => updatePackageCalculations('edit')); // Will enable when edit modal exists
+    });
+
+
     function updateComboCalculations(mode = 'add') {
         const suffix = mode === 'edit' ? 'edit_combo_' : '';
+        const displayId = mode === 'edit' ? 'edit_combo_original_price_display' : 'add_original_price_display';
         const checkboxes = document.querySelectorAll('#form' + (mode === 'edit' ? 'EditCombo' : 'Combo') + ' input[name="combo_services[]"]:checked');
         let totalPrice = 0;
         let totalDuration = 0;
@@ -540,7 +838,7 @@ renderSidebar('Serviços');
             totalDuration += parseInt(cb.dataset.duration || 0);
         });
         
-        const display = document.getElementById(suffix + 'original_price_display');
+        const display = document.getElementById(displayId);
         const input = document.getElementById(suffix + 'original_price_input');
         
         if (display) display.textContent = 'R$ ' + totalPrice.toFixed(2).replace('.', ',');
@@ -553,6 +851,77 @@ renderSidebar('Serviços');
         }
     }
 </script>
+
+<!-- Modal: Editar Pacote -->
+<dialog id="modalEditPackage" class="p-0 rounded-2xl shadow-2xl w-full max-w-md backdrop:bg-[#4A4238]/20">
+    <div class="w-full">
+        <div class="bg-[#F5F2ED] px-6 py-4 flex justify-between items-center border-b border-[#E8E3DA]">
+            <h2 class="font-serif text-xl text-[#4A4238]">Editar Pacote</h2>
+            <button onclick="closeModal('modalEditPackage')" class="p-1 hover:bg-[#E8E3DA] rounded-full transition-colors">
+                <i data-lucide="x" class="w-5 h-5 text-[#8B7355]"></i>
+            </button>
+        </div>
+        
+        <form method="POST" id="formEditPackage" class="p-6 space-y-4 bg-white">
+            <input type="hidden" name="action" value="edit_package">
+            <input type="hidden" name="id" id="edit_package_id">
+            
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">NOME DO PACOTE</label>
+                    <input type="text" name="package_name" id="edit_package_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇO BASE</label>
+                        <select name="package_service_id" id="edit_package_service_id" onchange="updatePackageCalculations('edit')" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
+                            <?php foreach ($services as $svc): ?>
+                            <option value="<?php echo $svc['id']; ?>" data-price="<?php echo $svc['price']; ?>"><?php echo htmlspecialchars($svc['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">QTD SESSÕES</label>
+                        <input type="number" name="package_sessions" id="edit_package_sessions" oninput="updatePackageCalculations('edit')" required min="2" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
+                    </div>
+                </div>
+                
+                <div>
+                     <div class="flex justify-between items-center mb-2">
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] font-semibold">PREÇO DO PACOTE</label>
+                        <span class="text-xs text-[#8B7355]">Preço Unit.: <span id="edit_package_unit_price" class="font-bold">R$ 0,00</span></span>
+                    </div>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[#C9B896]">R$</span>
+                        <input type="number" step="0.01" name="package_price" id="edit_package_price" oninput="updatePackageCalculations('edit')" required class="w-full pl-10 pr-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
+                    </div>
+                     <div class="mt-1 flex justify-between text-xs">
+                        <span class="text-[#8B7355]">Total Original: <span id="edit_package_original_total" class="line-through">R$ 0,00</span></span>
+                        <span class="text-[#5B7355] font-bold" id="edit_package_savings">Economia: 0%</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">DESCRIÇÃO</label>
+                    <textarea name="package_description" id="edit_package_description" rows="3" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] resize-none"></textarea>
+                </div>
+                
+                <div class="flex items-center gap-4 py-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="is_featured" id="edit_package_is_featured" value="1" class="w-4 h-4 text-[#C9B896] border-[#E8E3DA] rounded">
+                        <span class="text-sm text-[#4A4238]">Destacar na Landing Page</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="pt-4 flex gap-2">
+                <button type="button" onclick="closeModal('modalEditPackage')" class="flex-1 py-3 rounded-lg bg-[#F5F2ED] text-[#4A4238] hover:bg-[#E8E3DA] font-medium transition-all">Cancelar</button>
+                <button type="submit" class="flex-1 py-3 rounded-lg bg-[#4A4238] text-white hover:bg-[#3d362e] font-medium transition-all">Atualizar</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 
 <!-- Modal: Editar Combo -->
 <dialog id="modalEditCombo" class="p-0 rounded-2xl shadow-2xl w-full max-w-md backdrop:bg-[#4A4238]/20">

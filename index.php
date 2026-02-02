@@ -47,6 +47,9 @@ foreach ($combos as &$combo) {
     $combo['included_services'] = $stmt->fetchAll();
 }
 
+// Fetch Featured Packages
+$packages = $pdo->query("SELECT p.*, s.name as service_name FROM packages p JOIN services s ON p.service_id = s.id WHERE p.is_featured = 1 ORDER BY p.created_at DESC")->fetchAll();
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR" class="scroll-smooth">
@@ -67,6 +70,7 @@ foreach ($combos as &$combo) {
               sage: { DEFAULT: '#5B7355', dark: '#4A5E44', light: '#E8F0E6' },
               charcoal: { DEFAULT: '#433C30', light: '#5C5446' },
               gold: { DEFAULT: '#DAC38F', dark: '#B49C73' },
+              blue: { light: '#F0F4F8', accent: '#5B85AA' }
             },
             fontFamily: { serif: ['"Playfair Display"', 'serif'], sans: ['"Inter"', 'sans-serif'] },
             animation: {
@@ -113,6 +117,7 @@ foreach ($combos as &$combo) {
             <div class="hidden md:flex items-center gap-8 text-sm font-medium tracking-wide text-charcoal-light">
                 <a href="#inicio" class="hover:text-gold transition-colors">Início</a>
                 <?php if(!empty($combos)): ?><a href="#combos" class="hover:text-gold transition-colors">Combos</a><?php endif; ?>
+                <?php if(!empty($packages)): ?><a href="#pacotes" class="hover:text-gold transition-colors">Pacotes</a><?php endif; ?>
                 <a href="#servicos" class="hover:text-gold transition-colors">Serviços</a>
                 <a href="#sobre" class="hover:text-gold transition-colors">Sobre</a>
                 <a href="#depoimentos" class="hover:text-gold transition-colors">Depoimentos</a>
@@ -174,7 +179,7 @@ foreach ($combos as &$combo) {
             <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-4">
                 <div class="max-w-2xl">
                     <span class="text-gold font-bold uppercase tracking-widest text-xs mb-2 block">Ofertas Exclusivas</span>
-                    <h2 class="font-serif text-4xl md:text-5xl text-charcoal">Pacotes Imperdíveis</h2>
+                    <h2 class="font-serif text-4xl md:text-5xl text-charcoal">Combos Especiais</h2>
                 </div>
                 <p class="text-charcoal-light max-w-sm">Combinações exclusivas pensadas para o seu máximo bem-estar com valores especiais.</p>
             </div>
@@ -217,6 +222,57 @@ foreach ($combos as &$combo) {
                             <a href="book.php" class="block w-full text-center py-4 btn-primary text-white rounded-2xl font-medium hover:bg-gold transition-all shadow-lg group-hover:shadow-gold/20">
                                 Reservar Este Combo
                             </a>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <!-- FEATURED PACKAGES -->
+    <?php if(!empty($packages)): ?>
+    <section id="pacotes" class="py-24 bg-white relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 max-w-2xl mx-auto">
+                <span class="text-[#5B85AA] font-bold uppercase tracking-widest text-xs mb-2 block">Melhor Custo-Benefício</span>
+                <h2 class="font-serif text-4xl text-charcoal mb-4">Pacotes de Sessões</h2>
+                <div class="w-16 h-1 bg-[#5B85AA] mx-auto rounded-full mb-4"></div>
+                <p class="text-charcoal-light">Garanta a continuidade do seu tratamento com nossos pacotes de sessões e economize.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <?php foreach($packages as $pkg):
+                    $pricePerSession = $pkg['price'] / $pkg['session_count'];
+                ?>
+                <div class="group relative bg-[#F0F4F8] rounded-[32px] p-8 border border-blue-100 hover:border-[#5B85AA]/50 transition-all duration-500 hover:shadow-xl overflow-hidden">
+                    <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-[#5B85AA]/10 rounded-full blur-2xl group-hover:bg-[#5B85AA]/20 transition-colors"></div>
+                    
+                    <div class="relative z-10 flex flex-col h-full">
+                        <div class="mb-4 flex items-center gap-2">
+                             <div class="inline-flex items-center gap-2 bg-[#5B85AA] text-white px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full shadow-md">
+                                <span>📦</span> Pacote
+                            </div>
+                            <span class="text-xs font-semibold text-[#5B85AA] bg-white px-2 py-1 rounded-full border border-blue-100"><?php echo $pkg['session_count']; ?> Sessões</span>
+                        </div>
+
+                        <h3 class="font-serif text-2xl text-charcoal mb-1"><?php echo htmlspecialchars($pkg['name']); ?></h3>
+                        <p class="text-xs text-[#5B85AA] mb-6 font-medium tracking-wide"><?php echo htmlspecialchars($pkg['service_name']); ?></p>
+                        
+                        <?php if(!empty($pkg['description'])): ?>
+                        <p class="text-sm text-charcoal-light mb-6 italic opacity-80">"<?php echo htmlspecialchars($pkg['description']); ?>"</p>
+                        <?php endif; ?>
+                        
+                        <div class="mt-auto bg-white/60 rounded-2xl p-4 border border-blue-50">
+                            <div class="flex flex-col gap-1 mb-3">
+                                <span class="text-[10px] uppercase font-bold text-[#5B85AA]">Investimento</span>
+                                <span class="font-serif text-3xl font-bold text-charcoal">R$ <?php echo number_format($pkg['price'], 2, ',', '.'); ?></span>
+                            </div>
+                            <div class="flex items-center justify-between pt-3 border-t border-blue-100">
+                                <span class="text-xs text-charcoal-light">R$ <?php echo number_format($pricePerSession, 2, ',', '.'); ?> / sessão</span>
+                                <a href="book.php" class="text-xs font-bold text-[#5B85AA] hover:underline">Adquirir Pacote -></a>
+                            </div>
                         </div>
                     </div>
                 </div>

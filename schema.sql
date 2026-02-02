@@ -41,6 +41,18 @@ CREATE TABLE IF NOT EXISTS `combos` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `packages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `service_id` int DEFAULT NULL,
+  `session_count` int DEFAULT NULL,
+  `price` decimal(10,2) DEFAULT NULL,
+  `description` text,
+  `is_featured` int DEFAULT 0,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `appointments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `client_id` int DEFAULT NULL,

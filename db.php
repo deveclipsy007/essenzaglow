@@ -3,7 +3,10 @@
 date_default_timezone_set('America/Sao_Paulo');
 
 // --- CONFIGURAÇÃO DE AMBIENTE ---
-$is_local = ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1');
+$httpHost = $_SERVER['HTTP_HOST'] ?? '';
+$hostname = strtolower(explode(':', $httpHost)[0]);
+$localhosts = ['localhost', '127.0.0.1', '0.0.0.0'];
+$is_local = php_sapi_name() === 'cli-server' || in_array($hostname, $localhosts, true);
 
 try {
     if ($is_local) {

@@ -162,7 +162,12 @@ renderSidebar('Dashboard');
                     <div>
                         <div class="flex items-center gap-3 mb-2">
                             <span class="text-3xl md:text-4xl font-serif text-charcoal"><?php echo $start->format('H:i'); ?></span>
-                            <span class="text-charcoal-light uppercase text-xs md:text-sm">Hoje</span>
+                            <span class="text-charcoal-light uppercase text-xs md:text-sm">
+                                <?php 
+                                    $isToday = $start->format('Y-m-d') === date('Y-m-d');
+                                    echo $isToday ? 'HOJE' : $start->format('d/m');
+                                ?>
+                            </span>
                         </div>
                         <h4 class="text-lg md:text-xl font-medium text-charcoal"><?php echo htmlspecialchars($nextApp['client_name']); ?></h4>
                         <p class="text-gold-dark text-sm md:text-base"><?php echo htmlspecialchars($nextApp['service_name']); ?></p>

@@ -48,15 +48,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $client_id = $pdo->lastInsertId();
             }
 
-            // 2. Get Service/Combo Info
+            // 2. Get Service/Combo/Package Info
             $is_combo = (strpos($service_id, 'combo_') === 0);
-            $real_id = $is_combo ? str_replace('combo_', '', $service_id) : $service_id;
-
+            $is_package = (strpos($service_id, 'package_') === 0);
+            
             if ($is_combo) {
+                $real_id = str_replace('combo_', '', $service_id);
                 $stmt = $pdo->prepare("SELECT promotional_price as price, duration_minutes FROM combos WHERE id = ?");
+            } elseif ($is_package) {
+                $real_id = str_replace('package_', '', $service_id);
+                // For packages, we need duration from the base service
+                $stmt = $pdo->prepare("SELECT p.price, s.duration_minutes FROM packages p JOIN services s ON p.service_id = s.id WHERE p.id = ?");
             } else {
+                $real_id = $service_id;
                 $stmt = $pdo->prepare("SELECT price, duration_minutes FROM services WHERE id = ?");
             }
+            
             $stmt->execute([$real_id]);
             $item = $stmt->fetch();
 
@@ -66,11 +73,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $end_at = date('Y-m-d H:i:s', $end_at_ts);
 
             if ($is_combo) {
-                $stmt = $pdo->prepare("INSERT INTO appointments (client_id, combo_id, start_at, end_at, status, price, payment_status) VALUES (?, ?, ?, ?, 'PENDING_APPROVAL', ?, 'PENDING')");
+                $stmt = $pdo->prepare("INSERT INTO appointments (client_id, combo_id, start_at, end_at, status, price, payment_status, type) VALUES (?, ?, ?, ?, 'PENDING_APPROVAL', ?, 'PENDING', 'COMBO')");
+                $stmt->execute([$client_id, $real_id, $start_at, $end_at, $item['price']]);
+            } elseif ($is_package) {
+                 // Note: Ideally we track which package, but 'appointments' table logic might be simple. 
+                 // We will store it as a generic appointment with a note or just strict to schema.
+                 // Looking at schema, we don't have 'package_id'. checking schema.sql...
+                 // Schema has service_id, combo_id. No package_id. 
+                 // I should probably add package_id or just insert as a service_id (base service) but override price/title.
+                 // For now, let's look at schema again. User just added packages table. 
+                 // Let's assume for booking purposes, if we don't have package_id col in appointments, we might need it or abuse title/type.
+                 // Wait, I can't modify schema for appointments right now without asking.
+                 // But wait, the user asked "os pacotes aparecer no agendamento".
+                 // Let's check schema for appointments again.
+                 // Appointments has: client_id, service_id, combo_id.
+                 // I will treat it as the base service_id but with the package PRICE and add the package name to the notes/title if possible.
+                 // Actually, appointments.title exists.
+                 // OR I can use 'type' column 'PACKAGE'.
+                 
+                 // Fetch package name for title
+                 $pStmt = $pdo->prepare("SELECT name, service_id FROM packages WHERE id = ?");
+                 $pStmt->execute([$real_id]);
+                 $pInfo = $pStmt->fetch();
+                 
+                 $stmt = $pdo->prepare("INSERT INTO appointments (client_id, service_id, start_at, end_at, status, price, payment_status, title, type) VALUES (?, ?, ?, ?, 'PENDING_APPROVAL', ?, 'PENDING', ?, 'PACKAGE')");
+                 $stmt->execute([$client_id, $pInfo['service_id'], $start_at, $end_at, $item['price'], $pInfo['name']]);
             } else {
                 $stmt = $pdo->prepare("INSERT INTO appointments (client_id, service_id, start_at, end_at, status, price, payment_status) VALUES (?, ?, ?, ?, 'PENDING_APPROVAL', ?, 'PENDING')");
+                $stmt->execute([$client_id, $real_id, $start_at, $end_at, $item['price']]);
             }
-            $stmt->execute([$client_id, $real_id, $start_at, $end_at, $item['price']]);
             
             $appointment_id = $pdo->lastInsertId();
             
@@ -82,9 +113,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch Services and Combos
+// Fetch Services and Combos and Packages
 $services = $pdo->query("SELECT * FROM services")->fetchAll();
 $combos = $pdo->query("SELECT * FROM combos")->fetchAll();
+$packages = $pdo->query("SELECT * FROM packages")->fetchAll();
 
 // Get dates with available slots (next 30 days)
 $availableDates = $pdo->query("
@@ -205,6 +237,16 @@ $logoHeight = $logoData['subtitle'] ?? '32';
                                 <?php foreach($combos as $c): ?>
                                     <option value="combo_<?php echo $c['id']; ?>">
                                         <?php echo htmlspecialchars($c['name']); ?> - R$ <?php echo number_format($c['promotional_price'], 2, ',', '.'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($packages)): ?>
+                            <optgroup label="Pacotes de Sessões">
+                                <?php foreach($packages as $p): ?>
+                                    <option value="package_<?php echo $p['id']; ?>">
+                                        <?php echo htmlspecialchars($p['name']); ?> - R$ <?php echo number_format($p['price'], 2, ',', '.'); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </optgroup>
