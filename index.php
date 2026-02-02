@@ -48,7 +48,28 @@ foreach ($combos as &$combo) {
 }
 
 // Fetch Featured Packages
-$packages = $pdo->query("SELECT p.*, s.name as service_name FROM packages p JOIN services s ON p.service_id = s.id WHERE p.is_featured = 1 ORDER BY p.created_at DESC")->fetchAll();
+// Fetch Featured Packages
+$packages = $pdo->query("SELECT * FROM packages WHERE is_featured = 1 ORDER BY created_at DESC")->fetchAll();
+
+foreach ($packages as &$pkg) {
+    $stmt = $pdo->prepare("
+        SELECT s.name, ps.session_count 
+        FROM services s
+        JOIN package_services ps ON s.id = ps.service_id
+        WHERE ps.package_id = ?
+    ");
+    $stmt->execute([$pkg['id']]);
+    $services = $stmt->fetchAll();
+    
+    $displayNames = [];
+    foreach($services as $svc) {
+        $qty = $svc['session_count'] ?? 1;
+        $displayNames[] = ($qty > 1 ? $qty . 'x ' : '') . $svc['name'];
+    }
+    
+    $pkg['service_name'] = !empty($displayNames) ? implode(' + ', $displayNames) : 'Pacote Promocional';
+}
+unset($pkg);
 
 ?>
 <!DOCTYPE html>

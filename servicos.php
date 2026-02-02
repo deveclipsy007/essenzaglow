@@ -71,31 +71,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'add_package') {
         $is_featured = isset($_POST['is_featured']) ? 1 : 0;
-        // Criar pacote
-        $stmt = $pdo->prepare("INSERT INTO packages (name, service_id, session_count, price, description, is_featured) VALUES (?, ?, ?, ?, ?, ?)");
+        
+        // Calcular total sessions para display principal se quiser, ou deixar 0/null no package table.
+        // Vamos somar as sessions escolhidas
+        $totalSessions = 0;
+        if (!empty($_POST['package_service_counts'])) {
+            $totalSessions = array_sum($_POST['package_service_counts']);
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO packages (name, session_count, price, description, is_featured) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([
             $_POST['package_name'], 
-            $_POST['package_service_id'], 
-            $_POST['package_sessions'], 
+            $totalSessions, 
             $_POST['package_price'], 
             $_POST['package_description'],
             $is_featured
         ]);
+        
+        $pkgId = $pdo->lastInsertId();
+        
+        if (!empty($_POST['package_services'])) {
+            $stmt = $pdo->prepare("INSERT INTO package_services (package_id, service_id, session_count) VALUES (?, ?, ?)");
+            foreach ($_POST['package_services'] as $svcId) {
+                // Get count for this service
+                $count = isset($_POST['package_service_counts'][$svcId]) ? (int)$_POST['package_service_counts'][$svcId] : 1;
+                $stmt->execute([$pkgId, $svcId, $count]);
+            }
+        }
+        
     } elseif ($action === 'edit_package') {
+        $id = $_POST['id'];
         $is_featured = isset($_POST['is_featured']) ? 1 : 0;
-        $stmt = $pdo->prepare("UPDATE packages SET name=?, service_id=?, session_count=?, price=?, description=?, is_featured=? WHERE id=?");
+        
+        // Recalculate total sessions
+        $totalSessions = 0;
+        if (!empty($_POST['package_service_counts'])) {
+            $totalSessions = array_sum($_POST['package_service_counts']);
+        }
+        
+        $stmt = $pdo->prepare("UPDATE packages SET name=?, session_count=?, price=?, description=?, is_featured=? WHERE id=?");
         $stmt->execute([
             $_POST['package_name'], 
-            $_POST['package_service_id'], 
-            $_POST['package_sessions'], 
+            $totalSessions, 
             $_POST['package_price'], 
             $_POST['package_description'],
             $is_featured,
-            $_POST['id']
+            $id
         ]);
+        
+        // Update Services
+        $pdo->prepare("DELETE FROM package_services WHERE package_id = ?")->execute([$id]);
+        if (!empty($_POST['package_services'])) {
+            $stmt = $pdo->prepare("INSERT INTO package_services (package_id, service_id, session_count) VALUES (?, ?, ?)");
+            foreach ($_POST['package_services'] as $svcId) {
+                $count = isset($_POST['package_service_counts'][$svcId]) ? (int)$_POST['package_service_counts'][$svcId] : 1;
+                $stmt->execute([$id, $svcId, $count]);
+            }
+        }
+
     } elseif ($action === 'delete_package') {
         $stmt = $pdo->prepare("DELETE FROM packages WHERE id=?");
         $stmt->execute([$_POST['id']]);
+        $pdo->prepare("DELETE FROM package_services WHERE package_id=?")->execute([$_POST['id']]);
     }
     
     header("Location: servicos.php");
@@ -125,12 +162,30 @@ unset($combo);
 // Buscar pacotes
 $packages = [];
 try {
-    $stmt = $pdo->query("SELECT p.*, s.name as service_name, s.price as single_price FROM packages p LEFT JOIN services s ON p.service_id = s.id ORDER BY p.name");
+    $stmt = $pdo->query("SELECT * FROM packages ORDER BY name");
     $packages = $stmt->fetchAll();
+    
+    foreach ($packages as &$pkg) {
+        // Fetch services for this package
+        $sStmt = $pdo->prepare("SELECT s.*, ps.session_count as qty FROM services s JOIN package_services ps ON s.id = ps.service_id WHERE ps.package_id = ?");
+        $sStmt->execute([$pkg['id']]);
+        $pkg['included_services'] = $sStmt->fetchAll();
+        
+        // Calculate totals for display
+        $pkg['single_price'] = 0; // Sum of single prices of all included services * quantity
+        $names = [];
+        foreach($pkg['included_services'] as $isvc) {
+            $qty = $isvc['qty'] ?? 1;
+            $pkg['single_price'] += ($isvc['price'] * $qty);
+            $names[] = ($qty > 1 ? $qty . 'x ' : '') . $isvc['name'];
+        }
+        // Set a display name for the services (e.g. "10x Massage + 5x Facial")
+        $pkg['service_name'] = implode(' + ', $names);
+    }
+    unset($pkg);
+    
 } catch (PDOException $e) {
-    // Tabela packages ainda não existe ou erro na query.
-    // Ignorar para não quebrar a página, o usuário precisa rodar a migração.
-    // Opcionalmente poderíamos logar o erro: error_log($e->getMessage());
+    // Tabela packages ainda não existe
 }
 
 // --- VIEW ---
@@ -543,19 +598,39 @@ renderSidebar('Serviços');
                     <input type="text" name="package_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all" placeholder="Ex: Pacote 10 Sessões Massagem">
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <div>
-                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇO BASE</label>
-                        <select name="package_service_id" id="add_package_service" onchange="updatePackageCalculations()" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all">
-                            <option value="">Selecione...</option>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇOS INCLUSOS</label>
+                        <div class="space-y-3 max-h-96 overflow-y-auto overflow-x-hidden custom-scrollbar">
                             <?php foreach ($services as $svc): ?>
-                            <option value="<?php echo $svc['id']; ?>" data-price="<?php echo $svc['price']; ?>"><?php echo htmlspecialchars($svc['name']); ?></option>
+                            <div class="group bg-white border border-[#E8E3DA] rounded-xl p-3 shadow-sm hover:border-[#C9B896] transition-all has-[:checked]:border-[#C9B896] has-[:checked]:bg-[#FBF9F6] w-full">
+                                <label class="flex items-start gap-3 cursor-pointer select-none mb-3">
+                                    <div class="relative flex-none w-6 h-6 mt-0.5">
+                                        <input type="checkbox" name="package_services[]" value="<?php echo $svc['id']; ?>" 
+                                               data-price="<?php echo $svc['price']; ?>"
+                                               onchange="toggleQty('add', <?php echo $svc['id']; ?>); updatePackageCalculations('add')"
+                                               id="add_svc_cb_<?php echo $svc['id']; ?>"
+                                               class="peer appearance-none w-6 h-6 border-2 border-[#C9B896]/50 rounded-lg checked:bg-[#C9B896] checked:border-[#C9B896] transition-all cursor-pointer">
+                                        <i data-lucide="check" class="absolute left-1 top-1 w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"></i>
+                                    </div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-base font-medium text-[#4A4238] group-has-[:checked]:text-[#8B7355] transition-colors leading-snug break-words"><?php echo htmlspecialchars($svc['name']); ?></span>
+                                    </div>
+                                </label>
+                                
+                                <div class="flex items-center justify-between opacity-50 pointer-events-none transition-all group-has-[:checked]:opacity-100 group-has-[:checked]:pointer-events-auto" id="add_qty_box_<?php echo $svc['id']; ?>">
+                                    <span class="text-xs text-[#B5A594] font-medium whitespace-nowrap pl-1">R$ <?php echo number_format($svc['price'], 2, ',', '.'); ?></span>
+                                    
+                                    <div class="flex items-center gap-2 bg-white rounded-full border border-[#E8E3DA] p-1 shadow-sm shrink-0">
+                                        <button type="button" onclick="adjustQty('add', <?php echo $svc['id']; ?>, -1)" class="w-8 h-8 rounded-full bg-[#F5F2ED] text-[#8B7355] hover:bg-[#E8E3DA] flex items-center justify-center text-lg leading-none transition-colors active:scale-90 select-none">-</button>
+                                        <input type="number" name="package_service_counts[<?php echo $svc['id']; ?>]" id="add_qty_input_<?php echo $svc['id']; ?>" value="1" min="1" readonly
+                                               class="w-8 text-center bg-transparent font-bold text-[#4A4238] text-sm focus:outline-none cursor-default">
+                                        <button type="button" onclick="adjustQty('add', <?php echo $svc['id']; ?>, 1)" class="w-8 h-8 rounded-full bg-[#4A4238] text-white hover:bg-[#3d362e] flex items-center justify-center text-lg leading-none transition-colors active:scale-90 select-none">+</button>
+                                    </div>
+                                </div>
+                            </div>
                             <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">QTD SESSÕES</label>
-                        <input type="number" name="package_sessions" id="add_package_sessions" oninput="updatePackageCalculations()" required min="2" value="5" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238] placeholder-[#B5A594] focus:outline-none focus:ring-2 focus:ring-[#C9B896] transition-all">
+                        </div>
                     </div>
                 </div>
                 
@@ -776,37 +851,77 @@ renderSidebar('Serviços');
     
     function updatePackageCalculations(mode = 'add') {
          const suffix = mode === 'edit' ? 'edit_package_' : 'add_package_';
-         const serviceSelect = document.getElementById(suffix + (mode === 'edit' ? 'service_id' : 'service'));
-         const sessionsInput = document.getElementById(suffix + 'sessions');
+         // Checkboxes
+         const checkboxes = document.querySelectorAll('#form' + (mode === 'edit' ? 'EditPackage' : 'Package') + ' input[name="package_services[]"]:checked');
+         
          const priceInput = document.getElementById(suffix + 'price');
          
          const unitPriceDisplay = document.getElementById(suffix + 'unit_price');
          const originalTotalDisplay = document.getElementById(suffix + 'original_total');
          const savingsDisplay = document.getElementById(suffix + 'savings');
          
-         if (!serviceSelect || !sessionsInput || !priceInput) return;
+         if (!priceInput) return;
          
-         const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-         const servicePrice = parseFloat(selectedOption.getAttribute('data-price') || 0);
-         const sessions = parseInt(sessionsInput.value || 0);
+         let originalTotal = 0;
+         let totalSessions = 0;
+
+         checkboxes.forEach(cb => {
+             const price = parseFloat(cb.getAttribute('data-price') || 0);
+             // Find corresponding quantity input
+             // structure: label -> parent div -> find input[name^="package_service_counts"]
+             // The input is in the same container. The checkbox is in a label, the qty input is a sibling div's child.
+             // We can find it by name attribute pattern since we know the service ID.
+             const svcId = cb.value;
+             let qtyInput = document.querySelector(`#form${mode === 'edit' ? 'EditPackage' : 'Package'} input[name="package_service_counts[${svcId}]"]`);
+             const qty = qtyInput ? parseInt(qtyInput.value || 1) : 1;
+             
+             originalTotal += (price * qty);
+             totalSessions += qty;
+         });
+         
          const packagePrice = parseFloat(priceInput.value || 0);
          
-         const originalTotal = servicePrice * sessions;
-         const unitPrice = sessions > 0 ? packagePrice / sessions : 0;
+         const unitPrice = totalSessions > 0 ? packagePrice / totalSessions : 0;
          const savings = originalTotal - packagePrice;
          const savingsPercent = originalTotal > 0 ? (savings / originalTotal) * 100 : 0;
          
          if (originalTotalDisplay) originalTotalDisplay.innerText = 'R$ ' + originalTotal.toFixed(2).replace('.', ',');
          if (unitPriceDisplay) unitPriceDisplay.innerText = 'R$ ' + unitPrice.toFixed(2).replace('.', ',');
-         
-
+         if (savingsDisplay) savingsDisplay.innerText = 'Economia: ' + savingsPercent.toFixed(0) + '%';
     }
 
     function fillEditPackageModal(pkg) {
          document.getElementById('edit_package_id').value = pkg.id;
          document.getElementById('edit_package_name').value = pkg.name;
-         document.getElementById('edit_package_service_id').value = pkg.service_id;
-         document.getElementById('edit_package_sessions').value = pkg.session_count;
+         
+         // Reset checkboxes and quantities
+         const checkboxes = document.querySelectorAll('#formEditPackage input[name="package_services[]"]');
+         const qtyInputs = document.querySelectorAll('#formEditPackage input[name^="package_service_counts"]');
+         checkboxes.forEach(cb => { cb.checked = false; });
+         qtyInputs.forEach(inp => { inp.value = 1; });
+         
+         if (pkg.included_services) {
+             pkg.included_services.forEach(svc => {
+                 // Try to find checkbox by ID
+                 const cbId = 'edit_svc_cb_' + svc.id;
+                 const cb = document.getElementById(cbId);
+                 if (cb) {
+                     cb.checked = true;
+                     const qty = svc.qty || svc.session_count || 1; // Backend sends 'qty' alias
+                     const qtyId = 'edit_qty_input_' + svc.id;
+                     const qtyInput = document.getElementById(qtyId);
+                     if(qtyInput) qtyInput.value = qty;
+                     
+                     // Helper to handle visual state if needed
+                     toggleQty('edit', svc.id);
+                 }
+             });
+         }
+         
+         // Re-render icons if needed? Lucide.createIcons() might be needed for the check icons if they were dynamic, 
+         // but they are static. However, let's call it just in case something visual relies on it.
+         if (typeof lucide !== 'undefined') lucide.createIcons();
+         
          document.getElementById('edit_package_price').value = pkg.price;
          document.getElementById('edit_package_description').value = pkg.description;
          const featured = document.getElementById('edit_package_is_featured');
@@ -825,6 +940,39 @@ renderSidebar('Serviços');
         // document.getElementById('edit_package_price').addEventListener('input', () => updatePackageCalculations('edit')); // Will enable when edit modal exists
     });
 
+
+    function adjustQty(mode, svcId, delta) {
+        const inputId = (mode === 'edit' ? 'edit' : 'add') + '_qty_input_' + svcId;
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        
+        let val = parseInt(input.value || 1);
+        val += delta;
+        if (val < 1) val = 1;
+        input.value = val;
+        
+        // Also ensure checkbox is checked if we interact with quantity
+        const cbId = (mode === 'edit' ? 'edit' : 'add') + '_svc_cb_' + svcId;
+        const cb = document.getElementById(cbId);
+        if (cb && !cb.checked) {
+            cb.checked = true;
+            toggleQty(mode, svcId); // force visual update
+        }
+        
+        updatePackageCalculations(mode);
+    }
+    
+    function toggleQty(mode, svcId) {
+        // Just trigger standard calculation, CSS handles the rest based on checkbox state (:checked selector in parent)
+        // Actually, our CSS relies on 'group-has-[:checked]', so we don't need manual DOM manipulation for styles!
+        // Just run calc.
+        updatePackageCalculations(mode);
+        // We do need to re-scan Lucide icons though if we were injecting them dynamically, 
+        // but here they are static in HTML. 
+        // We might want to call lucide.createIcons() if content was dynamic, but it isn't.
+        // The icons inside the checked box are hidden styles.
+        // Standard Lucide replacement happens on load.
+    }
 
     function updateComboCalculations(mode = 'add') {
         const suffix = mode === 'edit' ? 'edit_combo_' : '';
@@ -862,7 +1010,7 @@ renderSidebar('Serviços');
             </button>
         </div>
         
-        <form method="POST" id="formEditPackage" class="p-6 space-y-4 bg-white">
+        <form method="POST" id="formEditPackage" class="p-4 space-y-4 bg-white">
             <input type="hidden" name="action" value="edit_package">
             <input type="hidden" name="id" id="edit_package_id">
             
@@ -872,18 +1020,39 @@ renderSidebar('Serviços');
                     <input type="text" name="package_name" id="edit_package_name" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <div>
-                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇO BASE</label>
-                        <select name="package_service_id" id="edit_package_service_id" onchange="updatePackageCalculations('edit')" required class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
-                            <?php foreach ($services as $svc): ?>
-                            <option value="<?php echo $svc['id']; ?>" data-price="<?php echo $svc['price']; ?>"><?php echo htmlspecialchars($svc['name']); ?></option>
+                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">SERVIÇOS INCLUSOS</label>
+                        <div class="space-y-3 max-h-96 overflow-y-auto overflow-x-hidden custom-scrollbar">
+                           <?php foreach ($services as $svc): ?>
+                            <div class="group bg-white border border-[#E8E3DA] rounded-xl p-3 shadow-sm hover:border-[#C9B896] transition-all has-[:checked]:border-[#C9B896] has-[:checked]:bg-[#FBF9F6] w-full">
+                                <label class="flex items-start gap-3 cursor-pointer select-none mb-3">
+                                    <div class="relative flex-none w-6 h-6 mt-0.5">
+                                        <input type="checkbox" name="package_services[]" value="<?php echo $svc['id']; ?>" 
+                                               data-price="<?php echo $svc['price']; ?>"
+                                               onchange="toggleQty('edit', <?php echo $svc['id']; ?>); updatePackageCalculations('edit')"
+                                               id="edit_svc_cb_<?php echo $svc['id']; ?>"
+                                               class="peer appearance-none w-6 h-6 border-2 border-[#C9B896]/50 rounded-lg checked:bg-[#C9B896] checked:border-[#C9B896] transition-all cursor-pointer">
+                                        <i data-lucide="check" class="absolute left-1 top-1 w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"></i>
+                                    </div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-base font-medium text-[#4A4238] group-has-[:checked]:text-[#8B7355] transition-colors leading-snug break-words"><?php echo htmlspecialchars($svc['name']); ?></span>
+                                    </div>
+                                </label>
+                                
+                                <div class="flex items-center justify-between opacity-50 pointer-events-none transition-all group-has-[:checked]:opacity-100 group-has-[:checked]:pointer-events-auto" id="edit_qty_box_<?php echo $svc['id']; ?>">
+                                    <span class="text-xs text-[#B5A594] font-medium whitespace-nowrap pl-1">R$ <?php echo number_format($svc['price'], 2, ',', '.'); ?></span>
+                                    
+                                    <div class="flex items-center gap-2 bg-white rounded-full border border-[#E8E3DA] p-1 shadow-sm shrink-0">
+                                        <button type="button" onclick="adjustQty('edit', <?php echo $svc['id']; ?>, -1)" class="w-8 h-8 rounded-full bg-[#F5F2ED] text-[#8B7355] hover:bg-[#E8E3DA] flex items-center justify-center text-lg leading-none transition-colors active:scale-90 select-none">-</button>
+                                        <input type="number" name="package_service_counts[<?php echo $svc['id']; ?>]" id="edit_qty_input_<?php echo $svc['id']; ?>" value="1" min="1" readonly
+                                               class="w-8 text-center bg-transparent font-bold text-[#4A4238] text-sm focus:outline-none cursor-default">
+                                        <button type="button" onclick="adjustQty('edit', <?php echo $svc['id']; ?>, 1)" class="w-8 h-8 rounded-full bg-[#4A4238] text-white hover:bg-[#3d362e] flex items-center justify-center text-lg leading-none transition-colors active:scale-90 select-none">+</button>
+                                    </div>
+                                </div>
+                            </div>
                             <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] uppercase tracking-[0.1em] text-[#8B7355] mb-2 font-semibold">QTD SESSÕES</label>
-                        <input type="number" name="package_sessions" id="edit_package_sessions" oninput="updatePackageCalculations('edit')" required min="2" class="w-full px-4 py-3 rounded-lg bg-[#FBF9F6] border border-[#E8E3DA] text-[#4A4238]">
+                        </div>
                     </div>
                 </div>
                 

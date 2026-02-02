@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS `packages` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `package_services` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `package_id` int NOT NULL,
+  `service_id` int NOT NULL,
+  `session_count` int DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `appointments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `client_id` int DEFAULT NULL,
